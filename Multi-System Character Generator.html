@@ -1,0 +1,264 @@
+<!--System Developer: [YMSR]
+License: MIT License (for the code structure and logic)
+
+[Description]
+An automated character generation tool that processes external master data (JSON).-->>
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Character Generator</title>
+    <style>
+        body { font-family: sans-serif; background: #2c3e50; color: #ecf0f1; padding: 20px; line-height: 1.6; }
+        .container { max-width: 900px; margin: auto; background: #34495e; padding: 30px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        h1, h2, h3 { color: #3498db; border-bottom: 1px solid #5d6d7e; padding-bottom: 5px; }
+        .section { margin-bottom: 30px; background: #1a252f; padding: 20px; border-radius: 8px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
+        input, textarea, select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #465c71; background: #2c3e50; color: white; box-sizing: border-box; }
+        
+        .stat-display { background: #2980b9; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; position: sticky; top: 10px; z-index: 100; display: flex; justify-content: space-around; }
+        .stat-box { font-size: 1.2em; font-weight: bold; }
+        .warning { color: #e74c3c; font-size: 0.8em; }
+
+        .item-list { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        .entry { border-bottom: 1px solid #465c71; padding: 10px 0; display: flex; align-items: center; gap: 10px; }
+        .entry:hover { background: rgba(255,255,255,0.05); }
+        .entry-info { flex-grow: 1; }
+        .entry-name { font-weight: bold; color: #f1c40f; }
+        .entry-detail { font-size: 0.8em; color: #bdc3c7; }
+
+        button.main-btn { width: 100%; padding: 15px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 1.2em; cursor: pointer; margin-top: 20px; }
+        button.main-btn:hover { background: #2ecc71; }
+        .count-input { width: 60px !important; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Character Generator</h1>
+    
+    <div class="section">
+        <h2>1. マスタデータ読込</h2>
+        <input type="file" id="masterFile" accept=".json">
+    </div>
+
+    <div id="editor" style="display:none;">
+        <div class="stat-display">
+            <div class="stat-box">Remaining SKP: <span id="remSKP">0</span> / <span id="maxSKP">0</span></div>
+            <div class="stat-box">Budget: <span id="curMNY1"></span> / <span id="curMNY2"></span></div>
+        </div>
+
+        <div class="section">
+            <h2>2. 基本情報</h2>
+            <div class="grid">
+                <div>
+                    <label>名前</label><input type="text" id="charName" value="新規ユニット">
+                </div>
+                <div>
+                    <label>画像URL</label><input type="text" id="charImg" placeholder="https://...">
+                </div>
+            </div>
+            <label>説明</label>
+            <textarea id="charDesc" rows="3">ここに経歴などを記述</textarea>
+            
+            <div class="grid" style="margin-top:15px; grid-template-columns: repeat(4, 1fr);">
+                <div><label id = "Label_Spade"></label> </label><input type="number" id="s_str" value="1" onchange="calcStats()"></div>
+                <div><label id = "Label_Diamond"></label><input type="number" id="s_per" value="1" onchange="calcStats()"></div>
+                <div><label id = "Label_Club"></label><input type="number" id="s_dex" value="1" onchange="calcStats()"></div>
+                <div><label id = "Label_Heart"></label><input type="number" id="s_def" value="1" onchange="calcStats()"></div>
+            </div>
+            <div style="margin-top:10px;">
+                <label>Experience (EXP)</label><input type="number" id="lp_val" value="0" onchange="calcStats()">
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>3. 技能・異能の選択</h2>
+            <div id="abilityArea"></div>
+        </div>
+
+        <div class="section">
+            <h2>4. アイテム・装備の購入</h2>
+            <div id="itemArea" class="item-list"></div>
+        </div>
+
+        <button class="main-btn" onclick="generateJSON()">キャラクターJSONを出力</button>
+    </div>
+</div>
+
+<script>
+let masterData = null;
+let selectedAbilities = new Set();
+let selectedItems = {};
+
+document.getElementById('masterFile').addEventListener('change', function(e) {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        masterData = JSON.parse(event.target.result);
+        renderMasterFields();
+        document.getElementById('editor').style.display = 'block';
+        calcStats();
+    };
+    reader.readAsText(e.target.files[0]);
+});
+
+function calcStats() {
+    if(!masterData) return;
+    const per = parseInt(document.getElementById('s_per').value) || 0;
+    const dex = parseInt(document.getElementById('s_dex').value) || 0;
+    const lp = parseInt(document.getElementById('lp_val').value) || 0;
+    
+    const maxSKP = masterData.system_data.min + per + dex + (lp * masterData.system_data.coe);
+    let usedSKP = 0;
+    
+    // SKP計算
+    selectedAbilities.forEach(id => {
+        const ab = findAbility(id);
+        if(ab) usedSKP += ab["必要SKP"];
+    });
+
+    // MNY計算
+    let totalCost = 0;
+    for (let name in selectedItems) {
+        if(masterData.items[name]) {
+            totalCost += masterData.items[name]["金額"] * selectedItems[name];
+        }
+    }
+
+    document.getElementById('maxSKP').innerText = maxSKP.toFixed(2);
+    document.getElementById('remSKP').innerText = (maxSKP - usedSKP).toFixed(2);
+    document.getElementById('curMNY1').innerText = masterData.system_data.cur - totalCost;
+    document.getElementById('curMNY2').innerText = masterData.system_data.cur;
+    document.getElementById('Label_Spade').innerText = masterData.system_stats.spade;
+    document.getElementById('Label_Diamond').innerText = masterData.system_stats.diamond;
+    document.getElementById('Label_Club').innerText = masterData.system_stats.club;
+    document.getElementById('Label_Heart').innerText = masterData.system_stats.heart;
+
+    if(maxSKP - usedSKP < 0) document.getElementById('remSKP').classList.add('warning');
+    else document.getElementById('remSKP').classList.remove('warning');
+}
+
+function findAbility(name) {
+    const categories = ['skills', 'supernatural_abilities'];
+    const subCats = ['occupational_skills', 'general_skills', 'occupational_supernatural_abilities', 'general_supernatural_abilities'];
+    for(let cat of categories) {
+        for(let sub of Object.keys(masterData[cat])) {
+            if(masterData[cat][sub][name]) return masterData[cat][sub][name];
+        }
+    }
+    return null;
+}
+
+function renderMasterFields() {
+    const abArea = document.getElementById('abilityArea');
+    abArea.innerHTML = "";
+    
+    // 技能・異能描画
+    const cats = {
+        "skills": "技能",
+        "supernatural_abilities": "異能"
+    };
+
+    for(let [key, label] of Object.entries(cats)) {
+        abArea.innerHTML += `<h3>${label}</h3>`;
+        for(let [subKey, subData] of Object.entries(masterData[key])) {
+            const subLabel = subKey.includes("occupational") ? "【職業】" : "【汎用】";
+            for(let [name, data] of Object.entries(subData)) {
+                const div = document.createElement('div');
+                div.className = "entry";
+                div.innerHTML = `
+                    <input type="checkbox" onchange="toggleAbility('${name}', this.checked)" style="width:20px">
+                    <div class="entry-info">
+                        <span class="entry-name">${subLabel} ${name}</span> (SKP: ${data["必要SKP"]})<br>
+                        <span class="entry-detail">${data.効果.replace(/\n/g, ' ')}</span>
+                    </div>
+                `;
+                abArea.appendChild(div);
+            }
+        }
+    }
+
+    // アイテム描画
+    const itemArea = document.getElementById('itemArea');
+    itemArea.innerHTML = "";
+    for(let [name, data] of Object.entries(masterData.items)) {
+        const div = document.createElement('div');
+        div.className = "entry";
+        div.innerHTML = `
+            <input type="number" class="count-input" value="0" min="0" onchange="updateItem('${name}', this.value)">
+            <div class="entry-info">
+                <span class="entry-name">${name}</span> - ${data["金額"]} MNY<br>
+                <span class="entry-detail">${data.詳細 || ""}</span>
+            </div>
+        `;
+        itemArea.appendChild(div);
+    }
+}
+
+function toggleAbility(name, checked) {
+    if(checked) selectedAbilities.add(name);
+    else selectedAbilities.delete(name);
+    calcStats();
+}
+
+function updateItem(name, count) {
+    const c = parseInt(count);
+    if(c > 0) selectedItems[name] = c;
+    else delete selectedItems[name];
+    calcStats();
+}
+
+function generateJSON() {
+    const lp = document.getElementById('lp_val').value;
+    const mny = document.getElementById('curMNY').innerText;
+    
+    const equipment = [];
+    
+    // 技能・異能を統合して追加
+    selectedAbilities.forEach(name => {
+        const data = findAbility(name);
+        equipment.push(`${name}\n消費：${data.消費}\n${data.効果}`);
+    });
+
+    // アイテムを追加
+    for(let name in selectedItems) {
+        const data = masterData.items[name];
+        equipment.push(`${name}(装備品)\n金額：${data["金額"]}\n個数：${selectedItems[name]}\n${data.詳細 || ""}`);
+    }
+
+    // 最後にEXP/MNYを追記
+    equipment.push(`EXP：${lp}\nMNY：${mny}`);
+
+    const output = {
+        "name": document.getElementById('charName').value,
+        "description": document.getElementById('charDesc').value,
+        "image_url": document.getElementById('charImg').value,
+        "origin_system": masterData.system_id,
+        "base_stats": {
+            "spade": parseInt(document.getElementById('s_str').value),
+            "diamond": parseInt(document.getElementById('s_per').value),
+            "club": parseInt(document.getElementById('s_dex').value),
+            "heart": parseInt(document.getElementById('s_def').value)
+        },
+        "systems_config": {}
+    };
+
+    // 選択されたシステムの基本設定を流し込む
+    output.systems_config[masterData.system_id] = {
+        "stat_names": { "spade": masterData.system_stats.spade, "diamond": masterData.system_stats.diamond, "club": masterData.system_stats.club, "heart": masterData.system_stats.heart },
+        "equipment": equipment,
+        "storage": { "backpack": [], "warehouse": [] }
+    };
+
+    const blob = new Blob([JSON.stringify(output, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${output.name}_${masterData.system_id}.json`;
+    a.click();
+}
+</script>
+</body>
+</html>
