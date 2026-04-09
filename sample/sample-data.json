@@ -3,12 +3,47 @@
     "system_stats":{"spade": "任意のステータス名", "diamond": "任意のステータス名", "club": "任意のステータス名", "heart": "任意のステータス名"},
     "system_data":{"min": 0 , "coe":0.01 , "cur": 0},
     "skills":{
-        "occupational_skills":{},
-        "general_skills":{}
+        "occupational_skills":{
+            "任意の職業技能":{
+                "必要SKP": 1,
+                "消費":"消費するものを書く",
+                "効果":"効果などを書く",
+                "説明":"説明を書く"
+            }
+        },
+        "general_skills":{
+            "任意の汎用技能":{
+                "必要SKP": 1,
+                "消費":"消費するものを書く",
+                "効果":"効果などを書く",
+                "説明":"説明を書く"
+            }
+        }
     },
     "supernatural_abilities":{
-        "occupational_supernatural_abilities":{},
-        "general_supernatural_abilities":{}
+        "occupational_supernatural_abilities":{
+            "任意の職業異能":{
+                "必要SKP": 1,
+                "消費":"消費するものを書く",
+                "効果":"効果などを書く",
+                "説明":"説明を書く"
+            }
+        },
+        "general_supernatural_abilities":{
+            "任意の汎用異能":{
+                "必要SKP": 1,
+                "消費":"消費するものを書く",
+                "効果":"効果などを書く",
+                "説明":"説明を書く"
+            }
+        }
     },
-    "items":{}
+    "items":{
+        "任意のアイテム":{
+            "金額":1,
+            "個数":1,
+            "詳細":"効果などを書く",
+            "説明":"説明を書く" 
+        }
+    }
 }
