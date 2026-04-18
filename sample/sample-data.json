@@ -1,7 +1,7 @@
 {
     "system_id": "TRPGシステム名",
     "system_stats":{"spade": "任意のステータス名", "diamond": "任意のステータス名", "club": "任意のステータス名", "heart": "任意のステータス名"},
-    "system_data":{"min": 0 , "coe":0.01 , "cur": 0},
+    "system_data":{"min": 0 ,"dia_coe": 1 ,"clu_coe": 1 , "exp_coe":0.01 , "cur": 0},
     "skills":{
         "occupational_skills":{
             "任意の職業技能":{
