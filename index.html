@@ -110,7 +110,7 @@ function calcStats() {
     const dex = parseInt(document.getElementById('s_dex').value) || 0;
     const lp = parseInt(document.getElementById('lp_val').value) || 0;
     
-    const maxSKP = masterData.system_data.min + per + dex + (lp * masterData.system_data.coe);
+    const maxSKP = masterData.system_data.min + (per * masterData.system_data.dia_coe ) + (dex * masterData.system_data.clu_coe ) + (lp * masterData.system_data.exp_coe);
     let usedSKP = 0;
     
     // SKP計算
