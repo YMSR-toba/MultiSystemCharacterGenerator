@@ -248,6 +248,7 @@ function generateJSON() {
     // 選択されたシステムの基本設定を流し込む
     output.systems_config[masterData.system_id] = {
         "stat_names": { "spade": masterData.system_stats.spade, "diamond": masterData.system_stats.diamond, "club": masterData.system_stats.club, "heart": masterData.system_stats.heart },
+        "hp_rule":{"type": masterData.system_data.type , "expr": masterData.system_data.expr },
         "equipment": equipment,
         "storage": { "backpack": [], "warehouse": [] }
     };
